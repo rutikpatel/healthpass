@@ -2,9 +2,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 
-# Use your Neon DSN directly
 DSN = "postgresql://neondb_owner:npg_zNfpcEK4xbm3@ep-flat-lake-a4rd4uww-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-
 
 def get_connection():
     return psycopg2.connect(DSN)

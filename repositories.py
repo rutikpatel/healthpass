@@ -273,9 +273,6 @@ class PrescriptionRepo:
             picked_up_at=row["picked_up_at"],
         )
     
-    
-
-
 
 class AuditRepo:
     @staticmethod
