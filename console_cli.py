@@ -1,17 +1,64 @@
-# console_cli.py
 from datetime import date
+import csv
+from pathlib import Path
 
 from db import init_schema
 from command import (
     AddPatientCommand,
     NewPrescriptionCommand,
     GeneratePickupQRCommand,
-    DispensePrescriptionCommand
+    DispensePrescriptionCommand,
+    ReportDispensedCommand
 )
-from repositories import PatientRepo
+from repositories import PatientRepo, AuditRepo
 from services.prescription_service import list_prescriptions
 from notifier import NotifierFactory
 
+REPORTS_DIR = Path("reports")
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+REPORT_CSV_PATH = REPORTS_DIR / "dispensed_prescriptions.csv"
+
+
+def _export_dispensed_to_csv(rows):
+    """
+    Overwrite the CSV with the full list of dispensed prescriptions.
+    'rows' is a list[Prescription], already containing all DISPENSED rows.
+    """
+    with open(REPORT_CSV_PATH, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                "id",
+                "patient_id",
+                "drug_name",
+                "dosage",
+                "status",
+                "pickup_code",
+                "picked_up_at",
+                "created_at",
+                "expires_at",
+            ]
+        )
+        for p in rows:
+            writer.writerow(
+                [
+                    p.id,
+                    p.patient_id,
+                    p.drug_name,
+                    p.dosage,
+                    p.status,
+                    p.pickup_code or "",
+                    p.picked_up_at.isoformat() if p.picked_up_at else "",
+                    p.created_at.isoformat() if p.created_at else "",
+                    p.expires_at.isoformat() if p.expires_at else "",
+                ]
+            )
+
+    # audit export itself
+    AuditRepo.record_event(
+        "REPORT_DISPENSED_EXPORTED",
+        f"path={REPORT_CSV_PATH};count={len(rows)}",
+    )
 
 def _read_non_empty(prompt: str) -> str:
     while True:
@@ -149,6 +196,37 @@ def action_dispense():
     except Exception as ex:
         print("Error while dispensing prescription:", ex)
 
+def action_report_dispensed():
+    print("\n== Report: Dispensed Prescriptions ==")
+    cmd = ReportDispensedCommand()
+    try:
+        cmd.execute()
+    except Exception as ex:
+        print("Error while generating report:", ex)
+        return
+
+    rows = cmd.rows
+    if not rows:
+        print("No dispensed prescriptions found.")
+        return
+
+    print(f"Total dispensed prescriptions: {len(rows)}")
+    print("-" * 72)
+    for p in rows:
+        picked = p.picked_up_at or p.created_at
+        print(
+            f"ID={p.id} patient_id={p.patient_id} "
+            f"drug={p.drug_name} dosage={p.dosage} "
+            f"pickup_code={p.pickup_code or '-'} "
+            f"picked_up_at={picked}"
+        )
+
+    # ask user if they want export
+    choice = input("Export this report to CSV? [y/N]: ").strip().lower()
+    if choice == "y":
+        _export_dispensed_to_csv(rows)
+        print(f"Report exported to {REPORT_CSV_PATH}")
+
 def doctor_menu():
     while True:
         print(
@@ -182,6 +260,7 @@ def pharmacist_menu():
             "1) List prescriptions for patient\n"
             "2) Dispense prescription by pickup code\n"
             "3) Notify prescription ready (Factory Method)\n"
+            "4) Report dispensed prescriptions\n"
             "0) Back to role selection\n"
         )
         choice = input("Select option: ").strip()
@@ -192,6 +271,8 @@ def pharmacist_menu():
             action_dispense()
         elif choice == "3":
             action_notify()
+        elif choice == "4":
+            action_report_dispensed()
         elif choice == "0":
             break
         else:

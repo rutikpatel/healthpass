@@ -1,7 +1,7 @@
 # command.py
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timezone
-from typing import Optional
+from typing import Optional, List
 
 from services.patient_service import register_patient
 from services.prescription_service import (
@@ -10,6 +10,7 @@ from services.prescription_service import (
 )
 from services.qr_service import generate_qr_for_prescription
 from repositories import PatientRepo, PrescriptionRepo, AuditRepo
+from models import Prescription
 from notifier import NotifierFactory
 
 
@@ -120,3 +121,22 @@ class DispensePrescriptionCommand(Command):
             "RX_DISPENSED",
             f"prescription_id={p.id};pickup_code={self.pickup_code}",
         )
+
+class ReportDispensedCommand(Command):
+    """
+    Generate a report of all dispensed prescriptions.
+
+    The Command sets self.rows to a list of Prescription domain objects.
+    The CLI layer is responsible for formatting/printing the report.
+    """
+    def __init__(self) -> None:
+        self.rows: List[Prescription] = []
+
+    def execute(self) -> None:
+        self.rows = PrescriptionRepo.list_dispensed()
+        # optional audit: that a report was generated
+        AuditRepo.record_event(
+            "REPORT_DISPENSED_GENERATED",
+            f"count={len(self.rows)}",
+        )
+

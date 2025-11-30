@@ -1,4 +1,3 @@
-# repositories.py
 from typing import Optional, List
 from db import db_cursor
 from models import Patient, Prescription
@@ -7,7 +6,6 @@ from datetime import datetime
 def _hcn_to_hex(hcn: str) -> str:
     """Convert a health card number to a hex string for storage."""
     return hcn.encode("utf-8").hex()
-
 
 def _hcn_from_hex(h: str) -> str:
     """Convert stored hex back to the original health card number."""
@@ -43,7 +41,7 @@ class PatientRepo:
             return None
         return Patient(
             id=row["id"],
-            health_card_no=row["health_card_no"],
+            health_card_no=_hcn_from_hex(row["health_card_no"]),
             first_name=row["first_name"],
             last_name=row["last_name"],
             date_of_birth=row["date_of_birth"],
@@ -54,6 +52,19 @@ class PatientRepo:
 
 
 class PrescriptionRepo:
+    @staticmethod
+    def get_pickup_code_by_id(prescription_id: int) -> Optional[Prescription]:
+        sql = """
+        SELECT id, pickup_code, pickup_qr_path
+        FROM prescriptions
+        WHERE id = %s;
+        """
+        with db_cursor() as cur:
+            cur.execute(sql, (prescription_id,))
+            row = cur.fetchone()
+        if not row:
+            return None
+        return row["pickup_code"], row["pickup_qr_path"]
     @staticmethod
     def create(p: Prescription) -> Prescription:
         sql = """
@@ -147,6 +158,40 @@ class PrescriptionRepo:
         """
         with db_cursor() as cur:
             cur.execute(sql, (prescription_id,))
+    
+    @staticmethod
+    def list_dispensed() -> List[Prescription]:
+        """
+        Return all dispensed prescriptions, most recent first.
+        """
+        sql = """
+        SELECT id, patient_id, drug_name, dosage, instructions, status,
+               pickup_code, pickup_qr_path, expires_at, created_at, picked_up_at
+        FROM prescriptions
+        WHERE status = 'DISPENSED'
+        ORDER BY picked_up_at DESC NULLS LAST, created_at DESC;
+        """
+        with db_cursor() as cur:
+            cur.execute(sql)
+            rows = cur.fetchall()
+        result: List[Prescription] = []
+        for r in rows:
+            result.append(
+                Prescription(
+                    id=r["id"],
+                    patient_id=r["patient_id"],
+                    drug_name=r["drug_name"],
+                    dosage=r["dosage"],
+                    instructions=r["instructions"],
+                    status=r["status"],
+                    pickup_code=r["pickup_code"],
+                    pickup_qr_path=r["pickup_qr_path"],
+                    expires_at=r["expires_at"],
+                    created_at=r["created_at"],
+                    picked_up_at=r["picked_up_at"],
+                )
+            )
+        return result
 
 
 class AuditRepo:

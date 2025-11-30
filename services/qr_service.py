@@ -1,10 +1,9 @@
-# services/qr_service.py
 import uuid
 from urllib.parse import urlencode
 from pathlib import Path
 import requests
 
-from repositories import PrescriptionRepo, AuditRepo  # ← add AuditRepo
+from repositories import PrescriptionRepo, AuditRepo 
 
 QR_OUTPUT_DIR = "qr_codes"
 QR_BASE_URL = "https://api.qrserver.com/v1/create-qr-code/"
@@ -21,6 +20,12 @@ def generate_pickup_code() -> str:
 
 
 def generate_qr_for_prescription(prescription_id: int) -> str:
+    existing = PrescriptionRepo.get_pickup_code_by_id(prescription_id)
+    if existing is not None:
+        existing_code, existing_path = existing
+        if existing_code and existing_path:
+            print(f"Pickup code: {existing_code}, Path: {existing_path}")
+            return existing_path 
     pickup_code = generate_pickup_code()
     params = {"size": "200x200", "data": pickup_code}
     url = f"{QR_BASE_URL}?{urlencode(params)}"
@@ -41,10 +46,10 @@ def generate_qr_for_prescription(prescription_id: int) -> str:
         qr_path=str(out_path),
     )
 
-    # AUDIT: QR generated
     AuditRepo.record_event(
         "QR_GENERATED",
         f"prescription_id={prescription_id};pickup_code={pickup_code};path={out_path}",
     )
+    print(f"Pickup code: {pickup_code}, Path: {out_path}")
 
     return str(out_path)
