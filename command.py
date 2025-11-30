@@ -91,11 +91,9 @@ class GeneratePickupQRCommand(Command):
         self.prescription_id = prescription_id
 
     def execute(self) -> None:
-        # Use factory so we still exercise Factory Method
-        notifier = NotifierFactory.create()
-        notifier.notify_prescription_ready(self.prescription_id, recipient=None)
-        # The notifier / qr_service already writes NOTIFY_* and QR_GENERATED events
-
+        path = generate_qr_for_prescription(self.prescription_id)
+        # qr_service already audits QR_GENERATED
+        print(f"QR image generated at {path}")
 
 class DispensePrescriptionCommand(Command):
     def __init__(self, pickup_code: str) -> None:

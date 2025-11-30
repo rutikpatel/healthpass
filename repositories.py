@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List,Tuple
 from db import db_cursor
 from models import Patient, Prescription
 from datetime import datetime
@@ -49,13 +49,64 @@ class PatientRepo:
             email=row["email"],
             created_at=row["created_at"],
         )
+    
+    @staticmethod
+    def get_by_id(patient_id: int) -> Optional[Patient]:
+        sql = """
+        SELECT id, health_card_no, first_name, last_name,
+               date_of_birth, phone, email, created_at
+        FROM patients
+        WHERE id = %s;
+        """
+        with db_cursor() as cur:
+            cur.execute(sql, (patient_id,))
+            row = cur.fetchone()
+        if not row:
+            return None
+        return Patient(
+            id=row["id"],
+            health_card_no=_hcn_from_hex(row["health_card_no"]),
+            first_name=row["first_name"],
+            last_name=row["last_name"],
+            date_of_birth=row["date_of_birth"],
+            phone=row["phone"],
+            email=row["email"],
+            created_at=row["created_at"],
+        )
+    
+    @staticmethod
+    def update_contact(
+        patient_id: int,
+        phone: Optional[str] = None,
+        email: Optional[str] = None,
+    ) -> None:
+        updates = []
+        params = []
+        if phone is not None:
+            updates.append("phone = %s")
+            params.append(phone)
+        if email is not None:
+            updates.append("email = %s")
+            params.append(email)
+        if not updates:
+            return
+        sql = f"""
+        UPDATE patients
+        SET {", ".join(updates)}
+        WHERE id = %s;
+        """
+        params.append(patient_id)
+        with db_cursor() as cur:
+            cur.execute(sql, tuple(params))
 
 
 class PrescriptionRepo:
     @staticmethod
-    def get_pickup_code_by_id(prescription_id: int) -> Optional[Prescription]:
+    def get_pickup_code_by_id(
+        prescription_id: int,
+    ) -> Optional[Tuple[Optional[str], Optional[str]]]:
         sql = """
-        SELECT id, pickup_code, pickup_qr_path
+        SELECT pickup_code, pickup_qr_path
         FROM prescriptions
         WHERE id = %s;
         """
@@ -65,6 +116,7 @@ class PrescriptionRepo:
         if not row:
             return None
         return row["pickup_code"], row["pickup_qr_path"]
+    
     @staticmethod
     def create(p: Prescription) -> Prescription:
         sql = """
@@ -121,6 +173,7 @@ class PrescriptionRepo:
                 )
             )
         return result
+    
     @staticmethod
     def get_by_pickup_code(code: str) -> Optional[Prescription]:
         sql = """
@@ -192,6 +245,36 @@ class PrescriptionRepo:
                 )
             )
         return result
+    
+    @staticmethod
+    def get_by_id(prescription_id: int) -> Optional[Prescription]:
+        sql = """
+        SELECT id, patient_id, drug_name, dosage, instructions, status,
+               pickup_code, pickup_qr_path, expires_at, created_at, picked_up_at
+        FROM prescriptions
+        WHERE id = %s;
+        """
+        with db_cursor() as cur:
+            cur.execute(sql, (prescription_id,))
+            row = cur.fetchone()
+        if not row:
+            return None
+        return Prescription(
+            id=row["id"],
+            patient_id=row["patient_id"],
+            drug_name=row["drug_name"],
+            dosage=row["dosage"],
+            instructions=row["instructions"],
+            status=row["status"],
+            pickup_code=row["pickup_code"],
+            pickup_qr_path=row["pickup_qr_path"],
+            expires_at=row["expires_at"],
+            created_at=row["created_at"],
+            picked_up_at=row["picked_up_at"],
+        )
+    
+    
+
 
 
 class AuditRepo:

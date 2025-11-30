@@ -1,7 +1,7 @@
 from datetime import date
 import csv
 from pathlib import Path
-
+import os
 from db import init_schema
 from command import (
     AddPatientCommand,
@@ -10,8 +10,9 @@ from command import (
     DispensePrescriptionCommand,
     ReportDispensedCommand
 )
-from repositories import PatientRepo, AuditRepo
+from repositories import PatientRepo, AuditRepo, PrescriptionRepo
 from services.prescription_service import list_prescriptions
+from services.qr_service import ensure_pickup_code_and_qr
 from notifier import NotifierFactory
 
 REPORTS_DIR = Path("reports")
@@ -163,14 +164,65 @@ def action_list_prescriptions():
 def action_notify():
     print("\n== Notify: Prescription Ready ==")
     prescription_id = _read_int("Prescription ID: ")
-    recipient = input("Recipient email/phone (optional, used for email/SMS): ").strip() or None
+
+    # Load prescription + patient
+    p = PrescriptionRepo.get_by_id(prescription_id)
+    if not p:
+        print("No prescription found with that ID.")
+        return
+    if p.status== "DISPENSED":
+        print("Prescription already dispensed; cannot notify.")
+        return
+    patient = PatientRepo.get_by_id(p.id)
+    if not patient:
+        print("No patient found for this prescription.")
+        return
+
+    # Determine channel from env
+    kind = os.getenv("HP_NOTIFY_TYPE", "email").lower()
+    if kind not in ("email", "sms"):
+        print("HP_NOTIFY_TYPE must be 'email' or 'sms'. Current value:", kind)
+        return
+
+    # Ensure contact is present; if missing, prompt pharmacist and save it
+    if kind == "email" and not patient.email:
+        new_email = input(
+            "Patient email is missing. Enter email to use (leave blank to cancel): "
+        ).strip()
+        if not new_email:
+            print("Notification cancelled; no email provided.")
+            return
+        PatientRepo.update_contact(patient.id, email=new_email)
+        patient.email = new_email
+
+    if kind == "sms" and not patient.phone:
+        new_phone = input(
+            "Patient phone is missing. Enter phone to use (leave blank to cancel): "
+        ).strip()
+        if not new_phone:
+            print("Notification cancelled; no phone provided.")
+            return
+        PatientRepo.update_contact(patient.id, phone=new_phone)
+        patient.phone = new_phone
+
+    # Ask whether to include QR in the message
+    include_qr_answer = input(
+        "Include QR code in the notification? [y/N]: "
+    ).strip().lower()
+    include_qr = include_qr_answer == "y"
+
+    # Ensure pickup code (+ QR file) exist
+    pickup_code, qr_path = ensure_pickup_code_and_qr(prescription_id)
+    if not include_qr:
+        qr_path = None  # we still have it in DB, but we don't expose it in the message
 
     notifier = NotifierFactory.create()
     try:
-        notifier.notify_prescription_ready(prescription_id, recipient)
+        notifier.notify_prescription_ready(patient, pickup_code, qr_path)
         print("Notification executed via", notifier.__class__.__name__)
     except Exception as ex:
         print("Error while notifying:", ex)
+
 
 
 def action_generate_qr_direct():
