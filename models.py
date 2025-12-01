@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
 
+# Simple domain models used throughout the application. These are returned by
+# repositories and passed into commands and services.
 @dataclass
 class Patient:
     id: Optional[int]

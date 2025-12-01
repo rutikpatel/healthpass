@@ -19,11 +19,15 @@ def _ensure_output_dir() -> Path:
 def generate_pickup_code() -> str:
     return uuid.uuid4().hex[:10].upper()
 
+
 def ensure_pickup_code_and_qr(prescription_id: int) -> Tuple[str, str]:
     """
-    Ensure the prescription has a pickup_code and QR image.
-    Returns (pickup_code, qr_path).
+    Ensures a prescription has both a pickup code and a QR image.
+    If they already exist, reuse them; otherwise generate a new code, call the
+    third-party QR API, save the PNG, and update the DB.
+    This function is used by both QR generation and notification workflows.
     """
+
     existing = PrescriptionRepo.get_pickup_code_by_id(prescription_id)
     if existing is not None:
         code, path = existing

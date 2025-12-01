@@ -1,8 +1,16 @@
+"""
+Repository Pattern:
+All SQL access is centralized here. Higher layers work with Patient and Prescription
+domain objects instead of raw database rows or psycopg2 cursors.
+"""
+
 from typing import Optional, List,Tuple
 from db import db_cursor
 from models import Patient, Prescription
 from datetime import datetime
 
+# Health card numbers are stored hex-encoded in the database for privacy.
+# These helpers convert between plain text and hex at the repository boundary.
 def _hcn_to_hex(hcn: str) -> str:
     """Convert a health card number to a hex string for storage."""
     return hcn.encode("utf-8").hex()
@@ -74,6 +82,8 @@ class PatientRepo:
             created_at=row["created_at"],
         )
     
+    # Allows the pharmacist to fill in missing phone/email during notification.
+    # Changes are persisted so future notifications do not need to prompt again.
     @staticmethod
     def update_contact(
         patient_id: int,
@@ -273,10 +283,8 @@ class PrescriptionRepo:
             picked_up_at=row["picked_up_at"],
         )
     
-    
-
-
-
+# Single entry point for writing to audit_log. All important actions (patient created,
+# prescription created, notify, dispense, report export) call this for traceability.
 class AuditRepo:
     @staticmethod
     def record_event(event_type: str, payload: str) -> None:

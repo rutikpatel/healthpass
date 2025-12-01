@@ -3,6 +3,7 @@ from typing import Optional
 from models import Patient
 from repositories import PatientRepo
 
+#  register a new patient using their health card number and personal details
 def register_patient(
     health_card_no: str,
     first_name: str,

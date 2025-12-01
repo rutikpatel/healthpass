@@ -160,7 +160,13 @@ def action_list_prescriptions():
             f"status={p.status}, pickup_code={p.pickup_code or '-'}"
         )
 
-
+# Pharmacist notification workflow:
+# - Load prescription and patient
+# - Ensure required contact info (email or phone) is present; prompt and persist if missing
+# - Ask whether to include a QR code in the message
+# - Ensure pickup code and QR exist
+# - Use NotifierFactory (email/sms) to "send" the notification
+# - All steps are audit-logged via AuditRepo
 def action_notify():
     print("\n== Notify: Prescription Ready ==")
     prescription_id = _read_int("Prescription ID: ")
@@ -248,6 +254,8 @@ def action_dispense():
     except Exception as ex:
         print("Error while dispensing prescription:", ex)
 
+# Generates a report of all dispensed prescriptions for the pharmacist.
+# The data is shown in the console and can be exported to a CSV file for records.
 def action_report_dispensed():
     print("\n== Report: Dispensed Prescriptions ==")
     cmd = ReportDispensedCommand()
@@ -330,7 +338,12 @@ def pharmacist_menu():
         else:
             print("Invalid choice. Please select a valid option.")
 
-            
+
+"""
+Entry point for the interactive CLI. Routes to doctor or pharmacist menus
+and delegates actual work to Command objects.
+"""
+         
 def main_menu():
     while True:
         print(
