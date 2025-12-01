@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from models import Prescription
 from repositories import PrescriptionRepo
@@ -10,7 +10,7 @@ def create_prescription_for_patient(
     instructions: Optional[str],
     days_valid: int = 7,
 ) -> Prescription:
-    expires_at = datetime.utcnow() + timedelta(days=days_valid)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=days_valid)
     
     p = Prescription(
         id=None,

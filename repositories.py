@@ -6,7 +6,7 @@ domain objects instead of raw database rows or psycopg2 cursors.
 
 from typing import Optional, List,Tuple
 from db import db_cursor
-from models import Patient, Prescription
+from models import Patient, Prescription,AuditLog
 from datetime import datetime
 
 # Health card numbers are stored hex-encoded in the database for privacy.
@@ -287,11 +287,11 @@ class PrescriptionRepo:
 # prescription created, notify, dispense, report export) call this for traceability.
 class AuditRepo:
     @staticmethod
-    def record_event(event_type: str, payload: str) -> None:
+    def record_event(audit_log: AuditLog) -> None:
         sql = """
         INSERT INTO audit_log (event_type, payload)
         VALUES (%s, %s);
         """
         with db_cursor() as cur:
-            cur.execute(sql, (event_type, payload))
+            cur.execute(sql, (audit_log.event_type, audit_log.payload))
 

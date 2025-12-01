@@ -28,3 +28,10 @@ class Prescription:
     expires_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     picked_up_at: Optional[datetime] = None
+
+@dataclass
+class AuditLog:
+    id: Optional[int]
+    event_type: str
+    payload: Optional[str] = None
+    created_at: Optional[datetime] = None
