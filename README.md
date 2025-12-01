@@ -183,4 +183,3 @@ python main.py
 
 Academic submission for:
 SFWRTECH 4SA3 – Software Architecture (McMaster University)
-```

@@ -1,4 +1,10 @@
-# notifier.py
+"""
+Factory Method Pattern:
+NotifierFactory.create() returns an EmailNotifier or SMSNotifier based on the
+HP_NOTIFY_TYPE environment variable. The rest of the code only depends on the
+Notifier interface, not on concrete implementations.
+"""
+
 from abc import ABC, abstractmethod
 from typing import Optional
 import os
@@ -36,7 +42,8 @@ class EmailNotifier(Notifier):
             )
             print("EmailNotifier: no email for patient; skipping.")
             return
-
+        # In a real system this would call an email provider API.
+        # Here we simulate the notification via console output for demonstration.
         if qr_path:
             print(
                 f"EmailNotifier: would send email to {patient.email} "
@@ -69,7 +76,8 @@ class SMSNotifier(Notifier):
             print("SMSNotifier: no phone for patient; skipping.")
             return
 
-        # In reality you wouldn't send QR path by SMS; but for demo we show it.
+        # In a real system this would call an SMS provider API (e.g., Twilio).
+        # For this project we only print to the console.
         if qr_path:
             print(
                 f"SMSNotifier: would send SMS to {patient.phone} "

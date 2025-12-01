@@ -1,4 +1,10 @@
-# command.py
+"""
+Command Pattern:
+Each user-facing operation (doctor or pharmacist action) is represented as a Command
+with an execute() method. The console layer only handles input/output and delegates
+business logic to these Commands.
+"""
+
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timezone
 from typing import Optional, List

@@ -22,7 +22,8 @@ def db_cursor(dict_cursor: bool = True):
     finally:
         conn.close()
 
-
+# Initializes the database schema for the vertical slice. Uses IF NOT EXISTS so
+# it is safe to call on every startup.
 def init_schema():
     """Create minimal tables for the first vertical slice."""
     ddl = """
